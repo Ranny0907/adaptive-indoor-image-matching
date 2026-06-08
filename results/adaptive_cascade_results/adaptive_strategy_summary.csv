@@ -1,0 +1,5 @@
+﻿strategy,num_queries,success_count,success_rate,avg_total_runtime_ms,loftr_trigger_count,loftr_trigger_rate,avg_sg_attempts,avg_loftr_attempts,final_stage_counts
+SuperGlue only,356,320,0.898876404494382,365.8681710805283,0,0.0,6.935393258426966,0.0,"{""SuperGlue"": 320, ""failed"": 36}"
+LoFTR only,356,334,0.9382022471910112,675.8312749979871,356,1.0,0.0,6.230337078651686,"{""LoFTR"": 334, ""failed"": 22}"
+SG Top20 -> LoFTR,356,346,0.9719101123595506,458.3943940933239,42,0.11797752808988764,4.73314606741573,1.9887640449438202,"{""SuperGlue"": 314, ""LoFTR"": 32, ""failed"": 10}"
+SG Top40 -> LoFTR,356,347,0.9747191011235955,541.956768271754,36,0.10112359550561797,6.935393258426966,1.7443820224719102,"{""SuperGlue"": 320, ""LoFTR"": 27, ""failed"": 9}"

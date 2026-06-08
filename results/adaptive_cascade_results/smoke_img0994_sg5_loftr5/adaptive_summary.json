@@ -1,0 +1,24 @@
+{
+  "method": "SuperGlue->LoFTR adaptive cascade",
+  "dataset": "InLoc",
+  "num_queries": 1,
+  "success_count": 1,
+  "success_rate": 1.0,
+  "avg_total_runtime_ms": 502.0985002629459,
+  "avg_sg_runtime_ms": 346.8072002287954,
+  "avg_loftr_runtime_ms": 155.29130003415048,
+  "avg_sg_attempts": 5.0,
+  "avg_loftr_attempts": 1.0,
+  "loftr_trigger_count": 1,
+  "loftr_trigger_rate": 1.0,
+  "final_stage_counts": {
+    "LoFTR": 1
+  },
+  "device": "cuda",
+  "sg_topk": 5,
+  "loftr_topk": 5,
+  "warmup_pairs": 5,
+  "max_queries": null,
+  "query_name": "IMG_0994.JPG",
+  "pairs_csv": "D:\\xidian\\study\\homework\\CV\\baseline\\standardized_20260525\\pairs\\pairs_inloc_netvlad40.csv"
+}

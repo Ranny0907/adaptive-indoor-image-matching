@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venvs/
+.venv/
+env/
+
+# Large datasets and model weights
+datasets/data/
+datasets/baseline/
+methods/loftr_ckpt/
+*.ckpt
+*.pth
+*.pt
+
+# Local course materials and reference PDFs
+materials/
+
+# Third-party demo assets not needed for this project release
+methods/superglue/assets/
+
+# Generated caches and online outputs
+results/adaptive_feature_cache/
+results/adaptive_online_outputs/
+methods/superglue/outputs/
+
+# Raw heavy experiment outputs
+results/adaptive_cascade_results/*/adaptive_attempts.csv
+results/adaptive_cascade_results/*/adaptive_query_results.csv
+results/raw_loftr/
+results/raw_superglue/
+
+# Keep summary CSV/JSON and selected demo images trackable
+!results/adaptive_cascade_results/*/adaptive_summary.json
+!results/adaptive_cascade_results/*.csv
+!results/adaptive_demo_outputs/*.png
+
+# Local OS/editor files
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
