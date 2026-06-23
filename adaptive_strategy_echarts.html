@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>自适应匹配策略实验结果 ECharts 可视化</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px 34px 42px;
+      font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+      background: #f7f9fc;
+      color: #1f2d3d;
+    }
+    .page-title {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 800;
+      color: #0b3a78;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      margin: 0 0 22px;
+      font-size: 15px;
+      color: #536579;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e4eaf2;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 16px rgba(15, 42, 80, 0.06);
+    }
+    .card .label { font-size: 13px; color: #62758a; margin-bottom: 6px; }
+    .card .value { font-size: 23px; color: #0b3a78; font-weight: 800; }
+    .card .note { font-size: 12px; color: #7b8fa4; margin-top: 5px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-rows: 430px 390px;
+      gap: 18px;
+    }
+    .chart-box {
+      background: #fff;
+      border: 1px solid #e4eaf2;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(15, 42, 80, 0.07);
+      padding: 12px;
+      min-width: 0;
+    }
+    #scatter { grid-row: 1 / span 2; height: 100%; }
+    #successBar, #callBar { height: 100%; }
+    .footer-note {
+      margin-top: 18px;
+      padding: 12px 16px;
+      border-left: 4px solid #0b64c0;
+      background: #fff;
+      border-radius: 8px;
+      color: #364a5f;
+      font-size: 14px;
+      line-height: 1.7;
+      box-shadow: 0 4px 14px rgba(15, 42, 80, 0.05);
+    }
+    @media (max-width: 1100px) {
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid { grid-template-columns: 1fr; grid-template-rows: 520px 420px 420px; }
+      #scatter { grid-row: auto; }
+    }
+  </style>
+</head>
+<body>
+  <h1 class="page-title">自适应稀疏-稠密匹配策略实验结果</h1>
+  <p class="subtitle">InLoc Query-Level 验证结果：成功率、在线耗时与 LoFTR 调用率对比</p>
+
+  <div class="summary">
+    <div class="card">
+      <div class="label">推荐均衡策略</div>
+      <div class="value">SG Top20 → LoFTR</div>
+      <div class="note">97.19%，374.57 ms，LoFTR 调用率 11.80%</div>
+    </div>
+    <div class="card">
+      <div class="label">最高成功率</div>
+      <div class="value">97.47%</div>
+      <div class="note">SG Top40 / Confidence then fixed 系列</div>
+    </div>
+    <div class="card">
+      <div class="label">缓存带来的耗时下降</div>
+      <div class="value">36.91%</div>
+      <div class="note">SuperGlue only：365.87 ms → 230.84 ms</div>
+    </div>
+    <div class="card">
+      <div class="label">LoFTR 全量调用耗时</div>
+      <div class="value">675.83 ms</div>
+      <div class="note">成功率 93.82%，调用率 100%</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="chart-box" id="scatter"></div>
+    <div class="chart-box" id="successBar"></div>
+    <div class="chart-box" id="callBar"></div>
+  </div>
+
+  <div class="footer-note">
+    结论：单独使用 SuperGlue 速度较快但成功率有限，单独使用 LoFTR 成功率提升但全量调用耗时较高。级联策略通过“SuperGlue 快速验证 + LoFTR 按需补救”显著提高 Query-Level 成功率，其中 SG Top20 → LoFTR + cache 在成功率、在线耗时和 LoFTR 调用率之间取得较好平衡。
+  </div>
+
+<script>
+const rawData = [
+  {name:'SuperGlue only', successNum:320, queryNum:356, successRate:89.89, latency:365.87, loftrRate:0},
+  {name:'SuperGlue only + cache', successNum:320, queryNum:356, successRate:89.89, latency:230.84, loftrRate:0},
+  {name:'LoFTR only', successNum:334, queryNum:356, successRate:93.82, latency:675.83, loftrRate:100},
+  {name:'SG Top5 → LoFTR + cache', successNum:342, queryNum:356, successRate:96.07, latency:448.96, loftrRate:22.19},
+  {name:'SG Top10 → LoFTR + cache', successNum:344, queryNum:356, successRate:96.63, latency:430.31, loftrRate:17.42},
+  {name:'SG Top20 → LoFTR + cache', successNum:346, queryNum:356, successRate:97.19, latency:374.57, loftrRate:11.80},
+  {name:'SG Top40 → LoFTR + cache', successNum:347, queryNum:356, successRate:97.47, latency:406.78, loftrRate:10.11},
+  {name:'Confidence dispatch + cache', successNum:336, queryNum:356, successRate:94.38, latency:267.97, loftrRate:37.92},
+  {name:'Confidence dispatch max10 + cache', successNum:336, queryNum:356, successRate:94.38, latency:267.24, loftrRate:37.92},
+  {name:'Confidence then fixed + cache', successNum:347, queryNum:356, successRate:97.47, latency:420.48, loftrRate:38.20},
+  {name:'Confidence then fixed strict + cache', successNum:347, queryNum:356, successRate:97.47, latency:406.04, loftrRate:38.20}
+];
+
+const colors = {
+  sg: '#2f6bcf',
+  loftr: '#d95f59',
+  cascade: '#13a6a1',
+  confidence: '#f0a02e',
+  recommended: '#7b3fc8',
+  gray: '#8798ad'
+};
+function categoryOf(name) {
+  if (name === 'LoFTR only') return 'LoFTR only';
+  if (name.includes('Confidence')) return 'Confidence dispatch';
+  if (name.includes('Top')) return 'SG→LoFTR cascade';
+  return 'SuperGlue only';
+}
+function colorOf(name) {
+  if (name === 'SG Top20 → LoFTR + cache') return colors.recommended;
+  if (name === 'LoFTR only') return colors.loftr;
+  if (name.includes('Confidence')) return colors.confidence;
+  if (name.includes('Top')) return colors.cascade;
+  return colors.sg;
+}
+function shortName(name) {
+  return name
+    .replace('SuperGlue only + cache','SG only + cache')
+    .replace('SuperGlue only','SG only')
+    .replace('SG Top','Top')
+    .replace(' → LoFTR + cache','')
+    .replace('Confidence dispatch max10 + cache','Conf max10')
+    .replace('Confidence dispatch + cache','Conf dispatch')
+    .replace('Confidence then fixed strict + cache','Conf+fixed strict')
+    .replace('Confidence then fixed + cache','Conf+fixed')
+    .replace('LoFTR only','LoFTR only');
+}
+
+const scatter = echarts.init(document.getElementById('scatter'));
+scatter.setOption({
+  backgroundColor: '#ffffff',
+  title: {
+    text: '成功率 - 在线耗时权衡图',
+    subtext: '越靠左上越优；气泡越大表示 LoFTR 调用率越高',
+    left: 12,
+    top: 8,
+    textStyle: {fontFamily:'Microsoft YaHei', fontSize: 20, fontWeight: 800, color: '#0b3a78'},
+    subtextStyle: {fontFamily:'Microsoft YaHei', fontSize: 13, color: '#6b7d90'}
+  },
+  legend: {
+    top: 62,
+    left: 12,
+    itemWidth: 12,
+    itemHeight: 12,
+    textStyle: {fontFamily:'Microsoft YaHei', color:'#41546b'},
+    data: ['SuperGlue only','LoFTR only','SG→LoFTR cascade','Confidence dispatch']
+  },
+  grid: {left: 72, right: 36, top: 112, bottom: 78},
+  tooltip: {
+    trigger: 'item',
+    formatter: function (p) {
+      const d = p.data.raw;
+      return `<b>${d.name}</b><br/>成功数：${d.successNum}/${d.queryNum}<br/>成功率：${d.successRate}%<br/>平均在线耗时：${d.latency} ms<br/>LoFTR调用率：${d.loftrRate}%`;
+    },
+    textStyle: {fontFamily:'Microsoft YaHei'}
+  },
+  xAxis: {
+    name: '平均在线耗时 (ms)',
+    nameLocation: 'middle',
+    nameGap: 40,
+    min: 200,
+    max: 720,
+    splitNumber: 6,
+    axisLine: {lineStyle: {color:'#9aacbf'}},
+    axisLabel: {fontFamily:'Microsoft YaHei', color:'#4d5f73'},
+    nameTextStyle: {fontFamily:'Microsoft YaHei', color:'#283d55', fontWeight: 700},
+    splitLine: {lineStyle: {color:'#e9eef5'}}
+  },
+  yAxis: {
+    name: '成功率 (%)',
+    min: 88,
+    max: 98.5,
+    axisLine: {lineStyle: {color:'#9aacbf'}},
+    axisLabel: {fontFamily:'Microsoft YaHei', color:'#4d5f73'},
+    nameTextStyle: {fontFamily:'Microsoft YaHei', color:'#283d55', fontWeight: 700},
+    splitLine: {lineStyle: {color:'#e9eef5'}}
+  },
+  series: ['SuperGlue only','LoFTR only','SG→LoFTR cascade','Confidence dispatch'].map(cat => ({
+    name: cat,
+    type: 'scatter',
+    data: rawData.filter(d => categoryOf(d.name) === cat).map(d => ({
+      value: [d.latency, d.successRate, d.loftrRate],
+      raw: d,
+      symbolSize: d.name === 'SG Top20 → LoFTR + cache' ? 34 : Math.max(14, 14 + d.loftrRate * 0.22),
+      itemStyle: {color: colorOf(d.name), borderColor: '#fff', borderWidth: 1.6}
+    })),
+    label: {
+      show: true,
+      formatter: p => shortName(p.data.raw.name),
+      position: 'top',
+      fontFamily:'Microsoft YaHei',
+      fontSize: 11,
+      color: '#223246'
+    },
+    emphasis: {focus: 'series'}
+  })),
+  graphic: [
+    {
+      type: 'text',
+      right: 42,
+      top: 126,
+      style: {
+        text: '推荐均衡点\nSG Top20 → LoFTR',
+        fontFamily:'Microsoft YaHei',
+        fontSize: 14,
+        fontWeight: 700,
+        fill: colors.recommended,
+        textAlign: 'center'
+      }
+    }
+  ]
+});
+
+const successBar = echarts.init(document.getElementById('successBar'));
+successBar.setOption({
+  title: {
+    text: '各策略 Query-Level 成功率',
+    left: 8,
+    top: 6,
+    textStyle: {fontFamily:'Microsoft YaHei', fontSize: 18, fontWeight: 800, color: '#0b3a78'}
+  },
+  grid: {left: 84, right: 24, top: 58, bottom: 32},
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {type: 'shadow'},
+    formatter: params => {
+      const d = rawData.find(x => shortName(x.name) === params[0].name);
+      return `<b>${d.name}</b><br/>成功数：${d.successNum}/${d.queryNum}<br/>成功率：${d.successRate}%`;
+    },
+    textStyle: {fontFamily:'Microsoft YaHei'}
+  },
+  xAxis: {
+    type: 'value',
+    min: 88,
+    max: 98,
+    axisLabel: {formatter: '{value}%', fontFamily:'Microsoft YaHei'},
+    splitLine: {lineStyle: {color:'#e9eef5'}}
+  },
+  yAxis: {
+    type: 'category',
+    data: rawData.map(d => shortName(d.name)).reverse(),
+    axisLabel: {fontFamily:'Microsoft YaHei', color:'#394b5f', fontSize: 11}
+  },
+  series: [{
+    name: '成功率',
+    type: 'bar',
+    data: rawData.map(d => ({value: d.successRate, itemStyle: {color: colorOf(d.name)}})).reverse(),
+    label: {show: true, position: 'right', formatter: '{c}%', fontFamily:'Microsoft YaHei', color:'#2b3b4e', fontSize: 11},
+    barWidth: 15
+  }]
+});
+
+const callBar = echarts.init(document.getElementById('callBar'));
+callBar.setOption({
+  title: {
+    text: 'LoFTR 调用率对比',
+    subtext: '体现是否按需调用 LoFTR',
+    left: 8,
+    top: 6,
+    textStyle: {fontFamily:'Microsoft YaHei', fontSize: 18, fontWeight: 800, color: '#0b3a78'},
+    subtextStyle: {fontFamily:'Microsoft YaHei', color:'#6b7d90'}
+  },
+  grid: {left: 84, right: 24, top: 76, bottom: 32},
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {type: 'shadow'},
+    formatter: params => {
+      const d = rawData.find(x => shortName(x.name) === params[0].name);
+      return `<b>${d.name}</b><br/>LoFTR调用率：${d.loftrRate}%<br/>成功率：${d.successRate}%<br/>耗时：${d.latency} ms`;
+    },
+    textStyle: {fontFamily:'Microsoft YaHei'}
+  },
+  xAxis: {
+    type: 'value',
+    max: 100,
+    axisLabel: {formatter: '{value}%', fontFamily:'Microsoft YaHei'},
+    splitLine: {lineStyle: {color:'#e9eef5'}}
+  },
+  yAxis: {
+    type: 'category',
+    data: rawData.map(d => shortName(d.name)).reverse(),
+    axisLabel: {fontFamily:'Microsoft YaHei', color:'#394b5f', fontSize: 11}
+  },
+  series: [{
+    name: 'LoFTR调用率',
+    type: 'bar',
+    data: rawData.map(d => ({value: d.loftrRate, itemStyle: {color: colorOf(d.name)}})).reverse(),
+    label: {show: true, position: 'right', formatter: '{c}%', fontFamily:'Microsoft YaHei', color:'#2b3b4e', fontSize: 11},
+    barWidth: 15
+  }]
+});
+
+window.addEventListener('resize', () => {
+  scatter.resize();
+  successBar.resize();
+  callBar.resize();
+});
+</script>
+</body>
+</html>

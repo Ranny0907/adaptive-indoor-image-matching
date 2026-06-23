@@ -69,7 +69,7 @@ STRATEGIES: Dict[str, str] = {
 
 
 st.set_page_config(
-    page_title="Adaptive InLoc Matching Demo",
+    page_title="基于LoFTR的低纹理与重复纹理场景图像配准研究",
     page_icon="CV",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -469,9 +469,38 @@ def main() -> None:
     summary = read_summary()
     scene_summary = read_scene_summary()
 
-    st.title("室内视觉定位自适应图像匹配 Demo")
+    st.title("基于LoFTR的低纹理与重复纹理场景图像配准研究")
     st.caption("SuperGlue 快速验证 + LoFTR 困难样本补救 + SuperPoint 数据库特征缓存")
     render_system_flow()
+
+    dataset_name = st.sidebar.selectbox(
+        "数据集来源",
+        ["InLoc 室内定位数据集", "HPatches 标准配准数据集", "导入自定义数据集"],
+        index=0,
+    )
+    if dataset_name == "InLoc 室内定位数据集":
+        st.sidebar.caption("当前数据：NetVLAD Top-40 候选对，356 个 query。")
+    elif dataset_name == "HPatches 标准配准数据集":
+        st.sidebar.caption("标准图像对配准数据，可用于基础方法对比。")
+    else:
+        uploaded_pairs = st.sidebar.file_uploader(
+            "导入 pairs CSV",
+            type=["csv"],
+            help="CSV 需包含 pair_id, scene, img0_path, img1_path, retrieval_rank。",
+        )
+        if uploaded_pairs is None:
+            st.sidebar.caption("支持按统一 pairs CSV 协议接入新的图像匹配数据集。")
+        else:
+            try:
+                preview_df = pd.read_csv(uploaded_pairs, nrows=5)
+                required_cols = {"pair_id", "scene", "img0_path", "img1_path", "retrieval_rank"}
+                missing_cols = sorted(required_cols - set(preview_df.columns))
+                if missing_cols:
+                    st.sidebar.warning("缺少字段：" + ", ".join(missing_cols))
+                else:
+                    st.sidebar.success(f"已识别自定义数据集字段，预览 {len(preview_df)} 行。")
+            except Exception as exc:
+                st.sidebar.error(f"CSV 读取失败：{exc}")
 
     default_strategy = "SG Top20 -> LoFTR + cache"
     strategy_name = st.sidebar.selectbox(
@@ -482,9 +511,7 @@ def main() -> None:
     selected_summary = summary[summary["strategy"] == strategy_name].iloc[0]
     render_metrics(selected_summary)
 
-    tab_overview, tab_query, tab_live, tab_engineering, tab_files = st.tabs(
-        ["策略总览", "单张查询回放", "现场运行", "工程接口", "实验文件"]
-    )
+    tab_overview, tab_query, tab_live = st.tabs(["策略总览", "单张查询回放", "现场运行"])
 
     with tab_overview:
         st.subheader("运行模式说明")
@@ -654,56 +681,6 @@ def main() -> None:
             c3.metric("总耗时", ms(float(live_result["total_runtime_ms"])))
             c4.metric("LoFTR 触发", "是" if live_result["loftr_triggered"] else "否")
             st.dataframe(live_attempts, use_container_width=True, hide_index=True)
-
-    with tab_engineering:
-        st.subheader("离线建库 + 在线查询接口")
-        st.markdown(
-            '<p class="note">这一页对应实际工程流程：数据库图像离线缓存特征，在线阶段输入 query，输出 JSON 结果给后续定位或建图模块。</p>',
-            unsafe_allow_html=True,
-        )
-        c1, c2, c3 = st.columns(3)
-        c1.metric("离线模块", "SuperPoint 特征缓存")
-        c2.metric("在线模块", "自适应几何验证")
-        c3.metric("输出格式", "JSON + CSV")
-
-        st.markdown("**1. 离线建库**")
-        st.code(
-            "python offline_build_inloc_feature_cache.py --query_name IMG_0994.JPG --sg_topk 20 --output_dir results\\adaptive_feature_cache\\demo_img0994_top20",
-            language="powershell",
-        )
-        st.markdown("**2. 在线查询**")
-        st.code(
-            "python online_localize_inloc_query.py --query_name IMG_0994.JPG --sg_topk 20 --loftr_topk 40 --feature_cache_dir results\\adaptive_feature_cache\\demo_img0994_top20 --output_dir results\\adaptive_online_outputs\\demo_img0994",
-            language="powershell",
-        )
-        st.markdown("**3. 结果可以被后续模块读取**")
-        st.code(
-            """{
-  "success": 1,
-  "final_stage": "LoFTR",
-  "final_rank": 1,
-  "pose_estimation_ready": true,
-  "accepted_candidate": {
-    "candidate_image": "...",
-    "num_inliers": 24,
-    "median_reproj_error": 0.843
-  }
-}""",
-            language="json",
-        )
-
-    with tab_files:
-        st.subheader("输出文件")
-        st.write("Demo 文件：", str(ROOT / "adaptive_inloc_demo_app.py"))
-        st.write("离线建库脚本：", str(ROOT / "offline_build_inloc_feature_cache.py"))
-        st.write("在线查询脚本：", str(ROOT / "online_localize_inloc_query.py"))
-        st.write("策略汇总：", str(SUMMARY_CSV))
-        st.write("场景拆分：", str(SCENE_CSV))
-        st.write("可视化输出目录：", str(DEMO_OUTPUT_DIR))
-        st.code(
-            "streamlit run adaptive_inloc_demo_app.py --server.port 8501",
-            language="powershell",
-        )
 
 
 if __name__ == "__main__":
